@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>waffle</title>
+  <script src="./bower_components/d3/d3.min.js"></script>
+  <script src="./bower_components/colorbrewer/colorbrewer.js"></script>
+</head>
+<body>
+
+</body>
+<script>
+
+  var h=500, w=600;
+  var svg = d3.select("body").append("svg").attr("height",h).attr("width",w)
+  var chart = svg.append("g").attr("class","chart");
+
+  var domain = [0,20,21,40,41,60,61,80,81,100]
+  var colors = ["red","red","orange","orange","yellow","yellow","lightgreen","lightgreen","green","green"]
+  // var domain = [0,20,40,60,80,100];
+  // var colors = ["red","orange","yellow","lightgreen","green","lightblue"]
+  var colorScale = d3.scale.linear().domain(domain).range(colors)
+
+  var rawData = [];
+  for (var i=0;i<075;i++){
+    var e = {};
+    e.id = i;
+    e.cat1 = Math.floor(Math.random() * 100);
+    e.cat2 = Math.floor(Math.random() * 100);
+    e.bat1 = Math.floor(Math.random() * 100);
+    e.bat2 = Math.floor(Math.random() * 100);
+    rawData.push(e);
+  }
+
+  avgCategories(rawData)
+
+  function avgCategories(dataset){
+    var fields = ["cat","bat"];
+    dataset.forEach(function(d){
+      var keys = Object.keys(d);
+      for (var f in fields){
+        var re = new RegExp(fields[f],"i");
+        var these = keys.filter(function(k){return k.match(re)})
+        var sum = these.reduce(function(p,n){
+          p += d[n];
+          return p;
+        },0)
+        d[fields[f]+"_avg"] = sum/these.length;
+      }
+    })
+  }
+
+  var dimension = Math.floor(Math.sqrt(h * w / 5 / rawData.length));
+
+  var tall = Math.floor(h/dimension);
+  var wide = Math.floor(w/5/dimension);
+
+  var binBreaks = getBinBreaks("cat1", rawData);
+  var binScale = d3.scale.linear().domain(binBreaks).range(d3.range(0,rawData.length+1))
+
+  var scores = chart.append("g").attr("class","scores").selectAll(".score").data(rawData.sort(
+      function(a,b){
+        return a.cat1 - b.cat1;
+      }
+    )
+  ).enter().append("g").attr("class","score")
+  scores.append("rect")
+    .attr("height",dimension).attr("width",dimension)
+    .style("stroke","white")
+    .style("fill", function(d,i){return colorScale(d.cat1)})
+  scores.append("text")
+    .text(function(d){return d.cat1})
+    .attr("x",dimension/2).attr("y",dimension/2)
+    .attr("text-anchor","middle")
+
+  scores.attr("transform", function(d,i){
+    var pI = Math.floor(binScale(i));
+    var breakVal = binBreaks[pI];
+    var ya = (i - breakVal)%wide;
+    var x = (pI*wide*dimension) + (ya*dimension);
+    if (breakVal == 0){
+      var y = /*h - dimension -*/dimension + Math.floor(i/wide)*dimension;
+    }else{
+      var newI = i-breakVal;
+      var y = /*h - dimension -*/ dimension + Math.floor(newI/wide)*dimension;
+    }
+    return "translate("+x+","+y+")";
+  }).on("mouseover", function(d){
+    console.log(d.cat1)
+  })
+
+  var breaks = chart.append("g").attr("class","breaks").selectAll(".break").data(d3.range(0,5))
+    .enter().append("g").attr("class","break")
+    .attr("transform",function(d){
+      return "translate("+(wide*dimension*d)+",0)"
+    })
+  breaks.append("path")
+    .style("fill","none").style("stroke","black")
+    .attr("d", function(d){
+      var x1 = 0//wide * dimension * d
+      var y1 = 0
+      var x2 = wide * dimension //* (d+1)
+      var y2 = h
+      return "M "+x1+" "+y1+" H "+x2+" V "+y2+" H "+x1+" Z";
+    })
+  breaks.append("text")
+    .style("fill","black").attr("y",dimension/2).attr("x",wide*dimension/2)
+    .attr("text-anchor","middle")
+    .text(function(d,i){
+      var s = (i>0)?i*20+1:0;
+      return s +" - "+(d+1)*20
+    })
+
+  function update(field){
+    binBreaks = getBinBreaks(field, rawData);
+    binScale.domain(binBreaks);
+
+    scores.sort(function(a,b){return a[field] - b[field]})
+    scores.on("mouseover", function(d){
+      console.log(d[field])
+    })
+    scores.transition().duration(1000)
+      .attr("transform", function(d,i){
+        var pI = Math.floor(binScale(i));
+        var breakStart = binBreaks[pI];
+        var ya = (i - breakStart)%wide;
+        var x = (pI*wide*dimension) + (ya*dimension);
+        if (breakStart == 0){
+          var y = /*h - dimension -*/dimension + Math.floor(i/wide)*dimension;
+        }else{
+          var newI = i-breakStart;
+          var y = /*h - dimension -*/dimension + Math.floor(newI/wide)*dimension;
+        }
+        return "translate("+x+","+y+")";
+      })
+    scores.select("rect").transition().duration(1000)
+      .style("fill", function(d,i){return colorScale(d[field])})
+    scores.select("text").transition().duration(1000)
+      .text(function(d,i){return d[field]})
+  }
+
+  function getBinBreaks(field, data){
+    var bin1 = data.filter(function(d){return d[field] <= 20}).length;
+    var bin2 = data.filter(function(d){return 20 < d[field] && d[field]<= 40}).length;
+    var bin3 = data.filter(function(d){return 40 < d[field] && d[field]<= 60}).length;
+    var bin4 = data.filter(function(d){return 60 < d[field] && d[field] <= 80}).length;
+    var bin5 = data.filter(function(d){return 80 < d[field]}).length;
+    var bins = [bin1,bin2,bin3,bin4,bin5];
+    var curr = 0;
+    var counts = bins.reduce(function(p,n){
+          curr += n;
+          p.push(curr);
+          return p;
+        },[0])
+    return counts;
+  }
+
+
+</script>
+</html>
