@@ -1,0 +1,22 @@
+{
+  "name": "waffle",
+  "homepage": "https://github.com/cpgruber/waffle-chart",
+  "authors": [
+    "Chase Gruber <chasegruber@gmail.com>"
+  ],
+  "description": "",
+  "main": "",
+  "moduleType": [],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "d3": "^3.5.16",
+    "colorbrewer": "^1.0.0"
+  }
+}
